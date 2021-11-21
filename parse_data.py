@@ -202,18 +202,17 @@ def parse_speaker_intro(speaker_tag, meta_data=None):
         raise ParserError('Could not match speaker name: %r' % text)
 
     # Parse role and remove from name
-    lower_name = speaker_name.lower()
-    match = PRESIDENT_RE.match(lower_name)
+    match = PRESIDENT_RE.match(speaker_name)
     if match is not None:
         speaker_role = 'president'
         speaker_role_descr = match.group(1)
         speaker_name = match.group(2)
-    match = VICE_PRESIDENT_RE.match(lower_name)
+    match = VICE_PRESIDENT_RE.match(speaker_name)
     if match is not None:
         speaker_role = 'vice-president'
         speaker_role_descr = match.group(1)
         speaker_name = match.group(2)
-    match = MINISTER_RE.match(lower_name)
+    match = MINISTER_RE.match(speaker_name)
     if match is not None:
         speaker_role = 'minister'
         speaker_role_descr = match.group(1)

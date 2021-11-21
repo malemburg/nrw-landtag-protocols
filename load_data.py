@@ -62,4 +62,7 @@ def download_period(period, max_document=1000, extensions=('html', 'pdf', 'docx'
 
 if __name__ == '__main__':
     data = download_period(17, 100)
-    json.dump(data, open('period-17.json', 'w', encoding='utf-8'))
+    json.dump(data, open(os.path.join(PROTOCOL_DIR, 
+                                      'period-17.json'),
+                         'w', encoding='utf-8'))
+

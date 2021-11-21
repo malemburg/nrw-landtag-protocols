@@ -9,11 +9,11 @@ import urllib.parse
 import requests
 import json
 
-### Globals
-
-BASE_URL = 'https://www.landtag.nrw.de/portal/WWW/dokumentenarchiv/Dokument/'
-PROTOCOL_DIR = 'protocols'
-PROTOCOL_FILE_TEMPLATE = 'protocol-%i-%i.%s'
+from settings import (
+    BASE_URL,
+    PROTOCOL_DIR,
+    PROTOCOL_FILE_TEMPLATE,
+    )
 
 ###
 

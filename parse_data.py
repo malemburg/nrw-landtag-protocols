@@ -1,8 +1,18 @@
+#!/usr/bin/env python3
+"""
+    Parse HTML session protocols of the NRW Landtag.
+
+"""
 import os
 import re
 import json
 import bs4
 
+from settings import (
+    BASE_URL,
+    PROTOCOL_DIR,
+    PROTOCOL_FILE_TEMPLATE,
+    )
 
 ### Globals
 
@@ -17,10 +27,10 @@ BEGIN_RE = re.compile('Beginn:')
 # REs for get_speaker_name()
 SPEAKER_NAME_RE = re.compile('([\w\-. ]+)(?:\*\))? ?:')
 SPEAKER_PARTY_NAME_RE = re.compile('([\w\-. ]+)(?:\*\))? ?(\(\w+\)|\[\w+\]) ?:')
-MINISTER_NAME_RE = re.compile('([\w\-. ]+) ?, ?(Minister[\w\-., ]+):')
+MINISTER_NAME_RE = re.compile('([\w\-. ]+)(?:\*\))? ?, ?(Minister[\w\-., ]+):')
 
 # RE for clean_text()
-RE_CLEAN_TEXT = re.compile('\s+')
+RE_CLEAN_TEXT = re.compile('[\s\xad]+')
 
 ### Errors
 
@@ -205,68 +215,92 @@ def parse_protocol(soup):
     protocol_start = find_start(soup)
     if not protocol_start:
         raise ParserError('Could not find start of protocol')
-    current_speaker = protocol_start.find_next_sibling('p', class_='rRednerkopf')
 
-    # Iterate over speaker sections
-    parsing_session = True
+    # Scan all protocol paragraphs
     paragraphs = []
     protocol_meta_data = {}
-    while parsing_session:
-        # Start of a new speaker section
-        paragraph = parse_speaker_intro(current_speaker, protocol_meta_data)
-        section_meta_data = {
-            'speaker_name': paragraph['speaker_name'],
-            'speaker_party': paragraph['speaker_party'],
-            'speaker_ministry': paragraph['speaker_ministry'],
-            'speaker_role': paragraph['speaker_role'],
-        }
-        section_meta_data.update(protocol_meta_data)
-        paragraph['html_class'] = ', '.join(current_speaker.get('class'))
-        paragraphs.append(paragraph)
-        print (f'Working on section {section_meta_data}')
-        
-        # Loop over next paragraphs
-        for tag in current_speaker.find_next_siblings('p'):
-            p_class = set(tag.get('class'))
-            #print (f'Found tag {p_class}')
-            if set(('rRednerkopf', 'fZwischenfrage')) & p_class:
-                # Start of new speaker section
-                current_speaker = tag
-                break
-            if 'sSchluss' in p_class:
-                # End of protocol
-                parsing_session = False
-                break
-                
-            # Parse paragraph
-            if set(('aStandardabsatz', 't-N-ONummerierungohneSeitenzahl',
-                    't-D-SAntragetcmitSeitenzahl', 't-D-OAntragetcohneSeitenzahl',
-                    't-I-VInVerbindungmit', 't-O-NOhneNummerierungohneSeitenzahl',
-                    't1AbsatznachTOP', 't-M-berschriftMndlicheAnfrage',
-                    't-M-TTextMndlicheAnfrage',
-                    )) & p_class:
-                # Standard paragraph
-                paragraph = parse_speech_paragraph(tag, meta_data=section_meta_data)
-                print (f'  Found speech paragraph {paragraph}')
-            elif 'kKlammer' in p_class:
-                # Annotation paragraph
-                paragraph = parse_annotation_paragraph(tag, meta_data=section_meta_data)
-                print (f'    Found annotation paragraph {paragraph}')
-            elif 'zZitat' in p_class:
-                # Citation paragraph
-                paragraph = parse_citation_paragraph(tag, meta_data=section_meta_data)
-                print (f'    Found citation paragraph {paragraph}')
-            else:
-                raise ParserError(f'Could not parse section {p_class}')
-            
-            # Add paragraph
-            paragraph['html_class'] = ', '.join(p_class)
-            paragraphs.append(paragraph)
-            
-        else:
-            break
+    section_meta_data = {}
+    current_speaker = None
+    previous_speaker = None
+    for tag in protocol_start.find_next_siblings('p'):
+    
+        # Find "Word" style class
+        p_class = set(tag.get('class'))
+        #print (f'Found tag {p_class}')
 
+        # Detect end of protocol
+        if 'sSchluss' in p_class:
+            break
+            
+        # Parse new speaker section
+        if set(('rRednerkopf', 'fZwischenfrage')) & p_class:
+            try:
+                paragraph = parse_speaker_intro(tag, protocol_meta_data)
+            except ParserError:
+                # False speaker change
+                print (f'WARNING: Speaker intro paragraph without speaker information: '
+                       f'{current_speaker}')
+                # Parse the speaker intro as regular speech paragraph instead
+                p_class.add('aStandardabsatz')
+
+            else:
+                # Start of a new speaker section
+                section_meta_data = {
+                    'speaker_name': paragraph['speaker_name'],
+                    'speaker_party': paragraph['speaker_party'],
+                    'speaker_ministry': paragraph['speaker_ministry'],
+                    'speaker_role': paragraph['speaker_role'],
+                }
+                section_meta_data.update(protocol_meta_data)
+                previous_speaker = current_speaker
+                current_speaker = tag
+                print (f'New speaker section {section_meta_data}')
+                continue
+
+        # Skip all paragraphs until the first speaker intro
+        if current_speaker is None:
+            continue
+                
+        # Parse paragraph
+        if set(('aStandardabsatz', 't-N-ONummerierungohneSeitenzahl',
+                't-D-SAntragetcmitSeitenzahl', 't-D-OAntragetcohneSeitenzahl',
+                't-I-VInVerbindungmit', 't-O-NOhneNummerierungohneSeitenzahl',
+                't1AbsatznachTOP', 't-M-berschriftMndlicheAnfrage',
+                't-M-TTextMndlicheAnfrage',
+                )) & p_class:
+            # Standard paragraph
+            paragraph = parse_speech_paragraph(tag, meta_data=section_meta_data)
+            print (f'  Found speech paragraph {paragraph}')
+        elif 'kKlammer' in p_class:
+            # Annotation paragraph
+            paragraph = parse_annotation_paragraph(tag, meta_data=section_meta_data)
+            print (f'    Found annotation paragraph {paragraph}')
+        elif set(('zZitat', 'eZitat-Einrckung')) & p_class:
+            # Citation paragraph
+            paragraph = parse_citation_paragraph(tag, meta_data=section_meta_data)
+            print (f'    Found citation paragraph {paragraph}')
+        else:
+            raise ParserError(f'Could not parse section {p_class}')
+        
+        # Add paragraph
+        paragraph['html_class'] = ', '.join(p_class)
+        paragraphs.append(paragraph)
+        
     return paragraphs
+
+def process_protocol(period, index):
+
+    html_filename = os.path.join(
+        PROTOCOL_DIR, 
+        PROTOCOL_FILE_TEMPLATE % (period, index, 'html'))
+        
+    # Parse file
+    soup = create_parser(html_filename)
+    data = parse_protocol(soup)
+    
+    # Dump data as JSON
+    json_filename = os.path.splitext(html_filename)[0] + '.json'
+    json.dump(data, open(json_filename, 'w', encoding='utf-8'))
 
 ###
 
@@ -277,7 +311,4 @@ if __name__ == '__main__':
     if 0:
         soup = create_parser('protocols/protocol-17-31.html')
         tag = parse_protocol(soup)
-    filename = 'protocols/protocol-17-31.html'
-    soup = create_parser(filename)
-    data = parse_protocol(soup)
-    json.dump(data, open(filename, 'w', encoding='utf-8'))
+    process_protocol(int(sys.argv[1]), int(sys.argv[2]))

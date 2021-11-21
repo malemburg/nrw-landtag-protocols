@@ -1,0 +1,8 @@
+private
+pyenv
+*~
+*.bak
+*.pyc
+__pycache__
+protocols/*
+

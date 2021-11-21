@@ -329,6 +329,7 @@ def parse_protocol(soup):
                     'speaker_party': paragraph['speaker_party'],
                     'speaker_ministry': paragraph['speaker_ministry'],
                     'speaker_role': paragraph['speaker_role'],
+                    'speaker_role_descr': paragraph['speaker_role_descr'],
                 }
                 section_meta_data.update(protocol_meta_data)
                 previous_speaker = current_speaker

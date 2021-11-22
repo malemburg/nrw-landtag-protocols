@@ -3,11 +3,13 @@
     Parse HTML session protocols of the NRW Landtag.
 
     TODO:
-    - Address typo fixes (which cannot be solved using REs
+    - Address typo fixes (which cannot be solved using REs)
     - split multiple annotations in one paragraph into separate
       paragraph entries in the data
     - try to detect annotations which do not have the correct class
     - double check the detected names; the REs may match too much text
+
+    Written by Marc-Andre Lemburg, Nov 2021
 
 """
 import os
@@ -15,6 +17,7 @@ import re
 import json
 import bs4
 
+import load_data
 from settings import (
     BASE_URL,
     PROTOCOL_DIR,
@@ -35,6 +38,9 @@ INTERESTING_CLASSES = ['TopThema', 'aStandardabsatz', 'bBeginn',
 BEGIN_RE = re.compile('Beginn:|Beginn \d\d[:\.]\d\d|Seite 3427')
 # "Seite 3427" - problem in 14-32
 END_RE = re.compile('Schluss:|Ende:|__________')
+
+# REs for parsing the document date
+DATE_RE = re.compile('((\d\d)\.(\d\d)\.(\d\d\d\d))')
 
 # REs for parsing the speaker intros in parse_speaker_intro()
 SPEAKER_NAME_RE = re.compile('([\w\-‑.’\' ]+)(?:\*\))? ?(?:\(\w+ [\w ]+\))? ?:', re.I)
@@ -100,18 +106,40 @@ def bs_debug(tag):
 def clean_text(text):
 
     """ Remove all extra whitespace from text.
-    
+
     """
     if text is None:
         return None
     return RE_CLEAN_TEXT.sub(' ', text).strip()
+
+def protocol_meta_data(period, index, soup):
+
+    """ Return meta data to associate with the protocol
+
+    """
+    tag = soup.find(text=DATE_RE)
+    if tag is None:
+        print (f'WARNING: Could not find protocol date in document')
+        protocol_date = None
+    else:
+        match = DATE_RE.search(tag.get_text())
+        _, dd, mm, yyyy = match.groups()
+        protocol_date = '%s-%s-%s' % (yyyy, mm, dd)
+    protocol_title = 'Landtag NRW - Plenarprotokoll %i/%i' % (period, index)
+    return {
+        'protocol_date': protocol_date,
+        'protocol_title': protocol_title,
+        'protocol_period': period,
+        'protocol_index': index,
+        'protocol_url': load_data.protocol_url(period, index),
+    }
 
 def find_start(soup):
 
     """ Find the start node in the protocol
 
         Returns None in case this cannot be found.
-    
+
     """
     # First try: look for correct class
     protocol_start = soup.find('p', class_='bBeginn')
@@ -120,7 +148,7 @@ def find_start(soup):
         if begin_text is not None:
             return protocol_start
         # Can't use this node
-    
+
     # Second try: look for text
     begin_text = soup.find(text=BEGIN_RE)
     if begin_text is None:
@@ -128,14 +156,14 @@ def find_start(soup):
         return None
     # Go back up to find the parent p tag; this may not find anything
     protocol_start = begin_text.find_parent('p')
-    return protocol_start    
+    return protocol_start
 
 def find_end(soup):
 
     """ Find the end node in the protocol
 
         Returns None in case this cannot be found.
-    
+
     """
     # First try: look for correct class
     protocol_end = soup.find('p', class_='sSchluss')
@@ -144,7 +172,7 @@ def find_end(soup):
         if end_text is not None:
             return protocol_end
         # Can't use this node
-    
+
     # Second try: look for text
     end_text = soup.find(text=END_RE)
     if end_text is None:
@@ -158,7 +186,7 @@ def parse_speaker_intro(speaker_tag, meta_data=None):
 
     """ Parse the speaker_tag from the protocol and return a dictionary
         with the following entries:
-    
+
         speaker_name: Name of the speaker
         speaker_party: party of the speaker, if given, None otherwise
         speaker_ministry: ministry, the speaker is minister of, None otherwise
@@ -167,11 +195,11 @@ def parse_speaker_intro(speaker_tag, meta_data=None):
         speech: Text of speech in this paragraph, if any, or None
 
         meta_data is added to the dictionary, if given.
-    
+
     """
     # Get the speaker tag text, without tags
     text = clean_text(speaker_tag.get_text())
-    
+
     # Match speaker declarations
     speaker_name = None
     speaker_party = None
@@ -236,10 +264,10 @@ def parse_speaker_intro(speaker_tag, meta_data=None):
     return d
 
 def parse_speech_paragraph(speech_tag, meta_data=None):
-        
+
     # Get the speech tag text, without tags
     text = clean_text(speech_tag.get_text())
-    
+
     # Return paragraph data
     d = dict(speech=clean_text(text))
     if meta_data is not None:
@@ -247,14 +275,14 @@ def parse_speech_paragraph(speech_tag, meta_data=None):
     return d
 
 def parse_annotation_paragraph(speech_tag, meta_data=None):
-        
+
     # Get the speech tag text, without tags
     text = clean_text(speech_tag.get_text())
-    
+
     # Remove parens
     text = text.lstrip('(')
     text = text.rstrip(')')
-    
+
     # Return paragraph data
     d = dict(annotation=clean_text(text))
     if meta_data is not None:
@@ -262,14 +290,14 @@ def parse_annotation_paragraph(speech_tag, meta_data=None):
     return d
 
 def parse_citation_paragraph(speech_tag, meta_data=None):
-        
+
     # Get the speech tag text, without tags
     text = clean_text(speech_tag.get_text())
 
     # Remove parens
     text = text.lstrip('„"\'')
     text = text.rstrip('“"\'')
-    
+
     # Return paragraph data
     d = dict(citation=clean_text(text))
     if meta_data is not None:
@@ -279,7 +307,7 @@ def parse_citation_paragraph(speech_tag, meta_data=None):
 def parse_protocol(soup):
 
     """ Parse the protocol HTML soup
-    
+
     """
     # Find start of protocol in HTML
     protocol_start = find_start(soup)
@@ -302,7 +330,7 @@ def parse_protocol(soup):
         # Detect end of protocol
         if tag == protocol_end:
             break
-            
+
         # Find "Word" style class
         p_class = set(tag.get('class'))
         #print (f'Found tag {p_class}: {tag}')
@@ -343,7 +371,7 @@ def parse_protocol(soup):
             if verbose > 1:
                 print (f'Skipping tag, since no speaker found yet: {tag}')
             continue
-                
+
         # Parse paragraph
         if set(('aStandardabsatz', 't-N-ONummerierungohneSeitenzahl',
                 't-D-SAntragetcmitSeitenzahl', 't-D-OAntragetcohneSeitenzahl',
@@ -377,26 +405,30 @@ def parse_protocol(soup):
                 print (f'    Found citation paragraph {paragraph}')
         else:
             raise ParserError(f'Could not parse section {p_class}: {tag}')
-        
+
         # Add paragraph
         paragraph['html_class'] = ', '.join(p_class)
         paragraphs.append(paragraph)
-        
+
     return paragraphs
 
 def process_protocol(period, index):
 
     html_filename = os.path.join(
-        PROTOCOL_DIR, 
+        PROTOCOL_DIR,
         PROTOCOL_FILE_TEMPLATE % (period, index, 'html'))
-        
+
     # Parse file
     soup = create_parser(html_filename)
     data = parse_protocol(soup)
-    
+
+    # Add protocol meta data
+    protocol = protocol_meta_data(period, index, soup)
+    protocol['content'] = data
+
     # Dump data as JSON
     json_filename = os.path.splitext(html_filename)[0] + '.json'
-    json.dump(data, open(json_filename, 'w', encoding='utf-8'))
+    json.dump(protocol, open(json_filename, 'w', encoding='utf-8'))
 
 def main():
 
@@ -407,8 +439,7 @@ def main():
         process_protocol(period, index)
     else:
         # Process all available documents
-        from load_data import load_period_data
-        data = load_period_data(period)
+        data = load_data.load_period_data(period)
         for filename, protocol in sorted(data.items()):
             if os.path.splitext(filename)[1] != '.html':
                 continue

@@ -4,6 +4,8 @@
 
     Saves them as HTML, PDF and Word files.
 
+    Written by Marc-Andre Lemburg, Nov 2021
+
 """
 import os
 import urllib.parse
@@ -40,7 +42,7 @@ def load_period_data(period):
     """ Load period data JSON file
 
         If the file does not exist and empty dictionary is returned.
-    
+
     """
     filename = os.path.join(PROTOCOL_DIR, PERIOD_FILE_TEMPLATE % period)
     if not os.path.exists(filename):
@@ -51,7 +53,7 @@ def load_period_data(period):
 def save_period_data(period, data):
 
     """ Save the period data to a JSON file
-    
+
     """
     filename = os.path.join(PROTOCOL_DIR, PERIOD_FILE_TEMPLATE % period)
     with open(filename, 'w', encoding='utf-8') as f:
@@ -108,12 +110,12 @@ def download_period(period, max_document=300,
 
 def main():
 
-    """ Command line interface: 
-    
+    """ Command line interface:
+
         load_data.py <period> [<max_document>]
-    
+
         Loads all documents in the given period, up to index max_document.
-    
+
     """
     period = int(sys.argv[1])
     if len(sys.argv) > 2:

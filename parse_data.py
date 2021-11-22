@@ -32,7 +32,8 @@ INTERESTING_CLASSES = ['TopThema', 'aStandardabsatz', 'bBeginn',
     'rRednerkopf', 'sSchluss', 't1AbsatznachTOP', 'zZitat']
 
 # REs for find_start() and find_end()
-BEGIN_RE = re.compile('Beginn:|Beginn \d\d[:\.]\d\d')
+BEGIN_RE = re.compile('Beginn:|Beginn \d\d[:\.]\d\d|Seite 3427')
+# "Seite 3427" - problem in 14-32
 END_RE = re.compile('Schluss:|Ende:|__________')
 
 # REs for parsing the speaker intros in parse_speaker_intro()
@@ -350,13 +351,21 @@ def parse_protocol(soup):
                 't1AbsatznachTOP', 't-M-berschriftMndlicheAnfrage',
                 't-M-TTextMndlicheAnfrage', 't-N-SNummerierungmitSeitenzahl',
                 'pPunktgliederung', 't-M-ETextMndlicheEinrckung',
-                'MsoNormal',
+                'MsoNormal', 'aAbsatz', '1Tagesordnungsgliederung',
+                '2Tagesordnungsgliederung',
+                '3Tagesordnungsgliederung', 'tEinrckTagesordnung',
+                'mMndlicheAnfrage',
+                'pZitatPunktgliederung', 'dAntragDrucksache',
+                'vVerfasserMndlichenAnfrage', 'fberschriftMndlicheAnfrage',
+                'kTextMndlicheAnfrage', 'fberschriftMndlicheAnfragerage',
+                'nNummerieringAufzhlung', 'eTEingerueckterTOP',
+                'vinVerbindung',
                 )) & p_class:
             # Standard paragraph
             paragraph = parse_speech_paragraph(tag, meta_data=section_meta_data)
             if verbose:
                 print (f'  Found speech paragraph {paragraph}')
-        elif set(('kKlammer', 'wVorsitzwechsel')) & p_class:
+        elif set(('kKlammer', 'kKlammern', 'wVorsitzwechsel')) & p_class:
             # Annotation paragraph
             paragraph = parse_annotation_paragraph(tag, meta_data=section_meta_data)
             if verbose:

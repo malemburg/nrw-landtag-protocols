@@ -9,3 +9,9 @@ start-os:
 
 stop-os:
 	docker-compose down
+
+parse-all:
+	for i in 14 15 16 17; do parse_data.py $$i; done
+
+load-all:
+	for i in 14 15 16 17; do load_data.py $$i; done

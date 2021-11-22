@@ -1,0 +1,82 @@
+#
+# Docker-compose file for running OpenSearch (2 nodes) + OpenSearch Dashboards in containers
+#
+# Taken and adapted from https://opensearch.org/docs/latest/opensearch/install/docker/
+#
+# This should be considered a demo version, not a production setup.
+#
+version: '3'
+services:
+  opensearch-node1:
+    image: opensearchproject/opensearch:1.1.0
+    container_name: opensearch-node1
+    environment:
+      - cluster.name=opensearch-cluster
+      - node.name=opensearch-node1
+      - discovery.seed_hosts=opensearch-node1,opensearch-node2
+      - cluster.initial_master_nodes=opensearch-node1,opensearch-node2
+      - bootstrap.memory_lock=true # along with the memlock settings below, disables swapping
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m" # minimum and maximum Java heap size, recommend setting both to 50% of system RAM
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536 # maximum number of open files for the OpenSearch user, set to at least 65536 on modern systems
+        hard: 65536
+    volumes:
+      - ./os-data/node-1:/usr/share/opensearch/data
+      #- ./os-config/opensearch.yml:/usr/share/opensearch/config/opensearch.yml
+    ports:
+      # Local host only:
+      #- 127.0.0.1:9200:9200
+      # Make OS available to the whole subnet:
+      - 9200:9200
+      # Be sure to change the default admin password when using this setting !!!
+      - 127.0.0.1:9600:9600 # required for Performance Analyzer
+    networks:
+      - opensearch-net
+
+  opensearch-node2:
+    image: opensearchproject/opensearch:1.1.0
+    container_name: opensearch-node2
+    environment:
+      - cluster.name=opensearch-cluster
+      - node.name=opensearch-node2
+      - discovery.seed_hosts=opensearch-node1,opensearch-node2
+      - cluster.initial_master_nodes=opensearch-node1,opensearch-node2
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - ./os-data/node-2:/usr/share/opensearch/data
+      #- ./os-config/opensearch.yml:/usr/share/opensearch/config/opensearch.yml
+    networks:
+      - opensearch-net
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:1.1.0
+    container_name: opensearch-dashboards
+    ports:
+      # Local interface only:
+      #- 127.0.0.1:5601:5601
+      # To make the dashboard interface available on the whole subnet, use:
+      - 5601:5601
+      # Be sure to change the default password for admin in that case !!!
+    expose:
+      - "5601"
+    environment:
+      OPENSEARCH_HOSTS: '["https://opensearch-node1:9200","https://opensearch-node2:9200"]' # must be a string with no spaces when specified as an environment variable
+    #volumes:
+    #  - ./os-config/opensearch_dashboards.yml:/usr/share/opensearch-dashboards/config/opensearch_dashboards.yml
+    networks:
+      - opensearch-net
+
+networks:
+  opensearch-net:

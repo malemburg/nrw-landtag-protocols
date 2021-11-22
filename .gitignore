@@ -5,4 +5,4 @@ pyenv
 *.pyc
 __pycache__
 protocols/*
-
+os-data/*

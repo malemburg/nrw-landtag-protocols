@@ -325,6 +325,8 @@ def parse_protocol(soup):
     section_meta_data = {}
     current_speaker = None
     previous_speaker = None
+    p_counter = 1
+    speaker_section_counter = None
     for tag in protocol_start.find_next_siblings('p'):
 
         # Detect end of protocol
@@ -334,6 +336,9 @@ def parse_protocol(soup):
         # Find "Word" style class
         p_class = set(tag.get('class'))
         #print (f'Found tag {p_class}: {tag}')
+
+        # Find a new paragraph
+        paragraph = None
 
         # Parse new speaker section
         if set(('rRednerkopf', 'fZwischenfrage')) & p_class:
@@ -362,9 +367,9 @@ def parse_protocol(soup):
                 section_meta_data.update(protocol_meta_data)
                 previous_speaker = current_speaker
                 current_speaker = tag
+                speaker_section_counter = 1
                 if verbose:
                     print (f'New speaker section {section_meta_data}')
-                continue
 
         # Skip all paragraphs until the first speaker intro
         if current_speaker is None:
@@ -372,8 +377,11 @@ def parse_protocol(soup):
                 print (f'Skipping tag, since no speaker found yet: {tag}')
             continue
 
-        # Parse paragraph
-        if set(('aStandardabsatz', 't-N-ONummerierungohneSeitenzahl',
+        # Parse other paragraph types
+        if paragraph is not None:
+            # Already found a usable paragraph
+            pass
+        elif set(('aStandardabsatz', 't-N-ONummerierungohneSeitenzahl',
                 't-D-SAntragetcmitSeitenzahl', 't-D-OAntragetcohneSeitenzahl',
                 't-I-VInVerbindungmit', 't-O-NOhneNummerierungohneSeitenzahl',
                 't1AbsatznachTOP', 't-M-berschriftMndlicheAnfrage',
@@ -408,7 +416,11 @@ def parse_protocol(soup):
 
         # Add paragraph
         paragraph['html_class'] = ', '.join(p_class)
+        paragraph['flow_index'] = p_counter
+        paragraph['speaker_flow_index'] = speaker_section_counter
         paragraphs.append(paragraph)
+        p_counter += 1
+        speaker_section_counter += 1
 
     return paragraphs
 

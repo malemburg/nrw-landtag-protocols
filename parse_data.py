@@ -42,6 +42,7 @@ DATE_RE = re.compile('((\d\d)\.(\d\d)\.(\d\d\d\d))')
 SPEAKER_NAME_RE = re.compile('([\w\-‑.’\' ]+)(?:\*\))? ?(?:\(\w+ [\w ]+\))? ?:', re.I)
 SPEAKER_PARTY_NAME_RE = re.compile('([\w\-‑.’\' ]+)(?:\*\))? ?([\(\[]\w+[\)\]]|\w+[\)\]]|[\(\[]\w+) ?:?', re.I)
 MINISTER_NAME_RE = re.compile('([\w\-‑.’\' ]+)(?:\*\))? ?,(?:\*\))? ?(\w*minister[\w\-‑.,() ]*):', re.I)
+# ROLE_NAME_RE doesn't work correctly:
 ROLE_NAME_RE = re.compile('([\w\-‑.’\' ]+)(?:\*\))? ?,(?:\*\))? ?(\w+ [\w\-‑.,() ]*):', re.I)
 
 # Some of the errors found in texts:
@@ -246,11 +247,13 @@ def parse_speaker_intro(speaker_tag, meta_data=None):
         speaker_name = match.group(1)
         speaker_ministry = match.group(2)
         speech = text[match.end():]
-    match = ROLE_NAME_RE.match(text)
-    if match is not None:
-        speaker_name = match.group(1)
-        speaker_role_descr = match.group(2)
-        speech = text[match.end():]
+    if 0:
+        # ROLE_NAME_RE doesn't work correctly (yet)
+        match = ROLE_NAME_RE.match(text)
+        if match is not None:
+            speaker_name = match.group(1)
+            speaker_role_descr = match.group(2)
+            speech = text[match.end():]
 
     if speaker_name is None:
         raise ParserError('Could not match speaker name: %r' % text)

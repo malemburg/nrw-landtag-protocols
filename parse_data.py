@@ -65,15 +65,18 @@ MINISTER_RE = re.compile('((?:geschäftsführender? )?minister(?:in)?) (.+)', re
 RE_CLEAN_TEXT = re.compile('[\s\xad]+')
 
 # Sets of paragraph classes used to parse the protocols
-SPEAKER_INTRO_CLASSES = set(('rRednerkopf', 'fZwischenfrage'))
+SPEAKER_INTRO_CLASSES = set(('rRednerkopf', 'rRednerkopf0', 'fZwischenfrage'))
 SPEECH_CLASSES = set((
-                'aStandardabsatz', 't-N-ONummerierungohneSeitenzahl',
+                'aStandardabsatz',
+                'aAbsatz',
+                # Misc other Word classes used in the texts
+                't-N-ONummerierungohneSeitenzahl',
                 't-D-SAntragetcmitSeitenzahl', 't-D-OAntragetcohneSeitenzahl',
                 't-I-VInVerbindungmit', 't-O-NOhneNummerierungohneSeitenzahl',
                 't1AbsatznachTOP', 't-M-berschriftMndlicheAnfrage',
                 't-M-TTextMndlicheAnfrage', 't-N-SNummerierungmitSeitenzahl',
                 'pPunktgliederung', 't-M-ETextMndlicheEinrckung',
-                'MsoNormal', 'aAbsatz', '1Tagesordnungsgliederung',
+                '1Tagesordnungsgliederung',
                 '2Tagesordnungsgliederung',
                 '3Tagesordnungsgliederung', 'tEinrckTagesordnung',
                 'mMndlicheAnfrage',
@@ -82,6 +85,10 @@ SPEECH_CLASSES = set((
                 'kTextMndlicheAnfrage', 'fberschriftMndlicheAnfragerage',
                 'nNummerieringAufzhlung', 'eTEingerueckterTOP',
                 'vinVerbindung',
+                # Plain Word styles
+                'MsoNormal', 'MsoListBullet',
+                # Obvious mistakes
+                'sSchluss',
                 ))
 ANNOTATION_CLASSES = set(('kKlammer', 'kKlammern', 'wVorsitzwechsel'))
 CITATION_CLASSES = set(('zZitat', 'eZitat-Einrckung'))
@@ -345,7 +352,9 @@ def parse_protocol(soup):
     previous_speaker = None
     p_counter = 1
     speaker_section_counter = None
-    for tag in protocol_start.find_next_siblings('p'):
+    start_tag = protocol_start
+
+    for tag in start_tag.find_all_next('p'):
 
         # Detect end of protocol
         if tag == protocol_end:
@@ -365,7 +374,7 @@ def parse_protocol(soup):
             except ParserError as error:
                 # False speaker change
                 print (f'WARNING: Speaker intro paragraph without speaker information: '
-                       f'{error}')
+                    f'{error}')
                 # Parse the speaker intro as regular paragraph instead
                 text = clean_text(tag.get_text())
                 if text.startswith('('):
@@ -424,6 +433,9 @@ def parse_protocol(soup):
         paragraphs.append(paragraph)
         p_counter += 1
         speaker_section_counter += 1
+
+    else:
+        raise ParserError(f'Could not find end tag in protocol')
 
     return paragraphs
 

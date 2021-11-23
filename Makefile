@@ -1,8 +1,15 @@
+all:
+	echo "Please check the Makefile for available targets"
+
+### Prepare the virtual env
+
 install:
 	install-pyrun --python=3.8 pyenv
 
 packages:
 	pip install -r requirements.txt
+
+### OpenSearch Docker Setup
 
 setup-os:
 	mkdir -p os-config os-data/node-1 os-data/node-2
@@ -12,6 +19,8 @@ start-os:
 
 stop-os:
 	docker-compose down
+
+### Quick targets for the loader and parser
 
 parse-all:
 	for i in 14 15 16 17; do parse_data.py $$i; done

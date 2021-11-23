@@ -4,6 +4,9 @@ install:
 packages:
 	pip install -r requirements.txt
 
+setup-os:
+	mkdir -p os-config os-data/node-1 os-data/node-2
+
 start-os:
 	docker-compose up -d
 

@@ -7,6 +7,7 @@
     Written by Marc-Andre Lemburg, Nov 2021
 
 """
+import sys
 import os
 import urllib.parse
 import requests

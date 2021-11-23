@@ -41,6 +41,7 @@ To start a local OpenSearch cluster for experiments, run
 `make start-os`. To stop the cluser, run `make stop-os`.
 
 Be sure that you have set vm.max_map_count=262144 in your /etc/sysctl.conf
+and then run `sudo sysctl -p` to have the values loaded,
 or run `sudo sysctl -w vm.max_map_count=262144` to dynamically set the
 value. OpenSearch won't start without this setting.
 

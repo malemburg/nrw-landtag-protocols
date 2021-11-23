@@ -22,8 +22,12 @@ stop-os:
 
 ### Quick targets for the loader and parser
 
+load-all:
+	for i in 14 15 16 17; do load_data.py $$i; done
+
 parse-all:
 	for i in 14 15 16 17; do parse_data.py $$i; done
 
-load-all:
-	for i in 14 15 16 17; do load_data.py $$i; done
+feed-all:
+	for i in 14 15 16 17; do feed_opensearch.py $$i; done
+

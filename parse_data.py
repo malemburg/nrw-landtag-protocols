@@ -30,11 +30,6 @@ from settings import (
 # Verbosity
 verbose = 0
 
-# Interesting classes
-INTERESTING_CLASSES = ['TopThema', 'aStandardabsatz', 'bBeginn',
-    'eZitat-Einrckung', 'fZwischenfrage', 'kKlammer', 'pPunktgliederung',
-    'rRednerkopf', 'sSchluss', 't1AbsatznachTOP', 'zZitat']
-
 # REs for find_start() and find_end()
 BEGIN_RE = re.compile('Beginn:|Beginn \d\d[:\.]\d\d|Seite 3427')
 # "Seite 3427" - problem in 14-32
@@ -68,6 +63,28 @@ MINISTER_RE = re.compile('((?:geschäftsführender? )?minister(?:in)?) (.+)', re
 
 # RE for clean_text()
 RE_CLEAN_TEXT = re.compile('[\s\xad]+')
+
+# Sets of paragraph classes used to parse the protocols
+SPEAKER_INTRO_CLASSES = set(('rRednerkopf', 'fZwischenfrage'))
+SPEECH_CLASSES = set((
+                'aStandardabsatz', 't-N-ONummerierungohneSeitenzahl',
+                't-D-SAntragetcmitSeitenzahl', 't-D-OAntragetcohneSeitenzahl',
+                't-I-VInVerbindungmit', 't-O-NOhneNummerierungohneSeitenzahl',
+                't1AbsatznachTOP', 't-M-berschriftMndlicheAnfrage',
+                't-M-TTextMndlicheAnfrage', 't-N-SNummerierungmitSeitenzahl',
+                'pPunktgliederung', 't-M-ETextMndlicheEinrckung',
+                'MsoNormal', 'aAbsatz', '1Tagesordnungsgliederung',
+                '2Tagesordnungsgliederung',
+                '3Tagesordnungsgliederung', 'tEinrckTagesordnung',
+                'mMndlicheAnfrage',
+                'pZitatPunktgliederung', 'dAntragDrucksache',
+                'vVerfasserMndlichenAnfrage', 'fberschriftMndlicheAnfrage',
+                'kTextMndlicheAnfrage', 'fberschriftMndlicheAnfragerage',
+                'nNummerieringAufzhlung', 'eTEingerueckterTOP',
+                'vinVerbindung',
+                ))
+ANNOTATION_CLASSES = set(('kKlammer', 'kKlammern', 'wVorsitzwechsel'))
+CITATION_CLASSES = set(('zZitat', 'eZitat-Einrckung'))
 
 ### Errors
 
@@ -338,11 +355,11 @@ def parse_protocol(soup):
         p_class = set(tag.get('class'))
         #print (f'Found tag {p_class}: {tag}')
 
-        # Find a new paragraph
+        # Parse paragraph
         paragraph = None
 
         # Parse new speaker section
-        if set(('rRednerkopf', 'fZwischenfrage')) & p_class:
+        if SPEAKER_INTRO_CLASSES & p_class:
             try:
                 paragraph = parse_speaker_intro(tag, protocol_meta_data)
             except ParserError as error:
@@ -382,32 +399,17 @@ def parse_protocol(soup):
         if paragraph is not None:
             # Already found a usable paragraph
             pass
-        elif set(('aStandardabsatz', 't-N-ONummerierungohneSeitenzahl',
-                't-D-SAntragetcmitSeitenzahl', 't-D-OAntragetcohneSeitenzahl',
-                't-I-VInVerbindungmit', 't-O-NOhneNummerierungohneSeitenzahl',
-                't1AbsatznachTOP', 't-M-berschriftMndlicheAnfrage',
-                't-M-TTextMndlicheAnfrage', 't-N-SNummerierungmitSeitenzahl',
-                'pPunktgliederung', 't-M-ETextMndlicheEinrckung',
-                'MsoNormal', 'aAbsatz', '1Tagesordnungsgliederung',
-                '2Tagesordnungsgliederung',
-                '3Tagesordnungsgliederung', 'tEinrckTagesordnung',
-                'mMndlicheAnfrage',
-                'pZitatPunktgliederung', 'dAntragDrucksache',
-                'vVerfasserMndlichenAnfrage', 'fberschriftMndlicheAnfrage',
-                'kTextMndlicheAnfrage', 'fberschriftMndlicheAnfragerage',
-                'nNummerieringAufzhlung', 'eTEingerueckterTOP',
-                'vinVerbindung',
-                )) & p_class:
+        elif SPEECH_CLASSES & p_class:
             # Standard paragraph
             paragraph = parse_speech_paragraph(tag, meta_data=section_meta_data)
             if verbose:
                 print (f'  Found speech paragraph {paragraph}')
-        elif set(('kKlammer', 'kKlammern', 'wVorsitzwechsel')) & p_class:
+        elif ANNOTATION_CLASSES & p_class:
             # Annotation paragraph
             paragraph = parse_annotation_paragraph(tag, meta_data=section_meta_data)
             if verbose:
                 print (f'    Found annotation paragraph {paragraph}')
-        elif set(('zZitat', 'eZitat-Einrckung')) & p_class:
+        elif CITATION_CLASSES & p_class:
             # Citation paragraph
             paragraph = parse_citation_paragraph(tag, meta_data=section_meta_data)
             if verbose:

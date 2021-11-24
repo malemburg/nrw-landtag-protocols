@@ -39,10 +39,31 @@ END_RE = re.compile('Schluss:|Ende:|__________')
 DATE_RE = re.compile('((\d\d)\.(\d\d)\.(\d\d\d\d))')
 
 # REs for parsing the speaker intros in parse_speaker_intro()
-SPEAKER_NAME_RE = re.compile('([\w\-‑.’\' ]+)(?:\*\))? ?(?:\(\w+ [\w ]+\))? ?:', re.I)
-SPEAKER_PARTY_NAME_RE = re.compile('([\w\-‑.’\' ]+)(?:\*\))? ?([\(\[]\w+[\)\]]|\w+[\)\]]|[\(\[]\w+) ?:?', re.I)
-MINISTER_NAME_RE = re.compile('([\w\-‑.’\' ]+)(?:\*\))? ?,(?:\*\))? ?(\w*minister[\w\-‑.,() ]*):', re.I)
-OTHER_ROLE_NAME_RE = re.compile('([\w\-‑.’\' ]+)(?:\*\))? ?,(?:\*\))? ?(\w*präsident[\w\-‑.,() ]*):', re.I)
+NAME_DEF = '[\w\-‑.’\' ]+'
+SPEAKER_NAME_RE = re.compile(
+    '(' + NAME_DEF + ')'                        # name
+    '(?:\*\))? ?'                               # optional *) marker
+    '(?:\(\w+ [\w ]+\))? ?'                     # ignore extra text in parens
+    ':', re.I)                                  # final :
+SPEAKER_PARTY_NAME_RE = re.compile(
+    '(' + NAME_DEF + ')'                        # name
+    '(?:\*\))? ?'                               # optional *) marker
+    '([\(\[]\w+[\)\]]|\w+[\)\]]|[\(\[]\w+) ?'   # (party) or [party]
+    ':?', re.I)                                 # final : (sometimes omitted)
+MINISTER_NAME_RE = re.compile(
+    '(' + NAME_DEF + ')'
+    '(?:\*\))? ?'                               # optional *) marker
+    ','                                         # separating ,
+    '(?:\*\))? ?'                               # optional *) marker
+    '(\w*minister[\w\-‑.,() ]*)'                # *Minister*
+    ':', re.I)                                  # final :
+OTHER_ROLE_NAME_RE = re.compile(
+    '(' + NAME_DEF + ')'                        # name
+    '(?:\*\))? ?'                               # optional *) marker
+    ','                                         # separating ,
+    '(?:\*\))? ?'                               # optional *) marker
+    '(\w*präsident[\w\-‑.,() ]*)'               # *Präsident*
+    ':', re.I)                                  # final :
 
 # Some of the errors found in texts:
 # Fritz Fischer (CDU:

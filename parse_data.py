@@ -42,8 +42,7 @@ DATE_RE = re.compile('((\d\d)\.(\d\d)\.(\d\d\d\d))')
 SPEAKER_NAME_RE = re.compile('([\w\-‑.’\' ]+)(?:\*\))? ?(?:\(\w+ [\w ]+\))? ?:', re.I)
 SPEAKER_PARTY_NAME_RE = re.compile('([\w\-‑.’\' ]+)(?:\*\))? ?([\(\[]\w+[\)\]]|\w+[\)\]]|[\(\[]\w+) ?:?', re.I)
 MINISTER_NAME_RE = re.compile('([\w\-‑.’\' ]+)(?:\*\))? ?,(?:\*\))? ?(\w*minister[\w\-‑.,() ]*):', re.I)
-# ROLE_NAME_RE doesn't work correctly:
-ROLE_NAME_RE = re.compile('([\w\-‑.’\' ]+)(?:\*\))? ?,(?:\*\))? ?(\w+ [\w\-‑.,() ]*):', re.I)
+OTHER_ROLE_NAME_RE = re.compile('([\w\-‑.’\' ]+)(?:\*\))? ?,(?:\*\))? ?(\w*präsident[\w\-‑.,() ]*):', re.I)
 
 # Some of the errors found in texts:
 # Fritz Fischer (CDU:
@@ -63,7 +62,7 @@ VICE_PRESIDENT_RE = re.compile('((?:geschäftsführender? )?vizepräsident(?:in)
 MINISTER_RE = re.compile('((?:geschäftsführender? )?minister(?:in)?) (.+)', re.I)
 
 # RE for clean_text()
-RE_CLEAN_TEXT = re.compile('[\s\xad]+')
+RE_CLEAN_TEXT = re.compile('[\s]+')
 
 # Sets of paragraph classes used to parse the protocols
 SPEAKER_INTRO_CLASSES = set(('rRednerkopf', 'rRednerkopf0', 'fZwischenfrage'))
@@ -136,6 +135,19 @@ def clean_text(text):
     """
     if text is None:
         return None
+    # Remove soft hyphens added by Word
+    text = text.replace('\xad', '')
+    return RE_CLEAN_TEXT.sub(' ', text).strip()
+
+def clean_tag_text(tag):
+
+    """ Convert a tag to a string, with all extra whitespace removed.
+
+    """
+    if tag is None:
+        return None
+    # Get tag text and remove soft hyphens added by Word
+    text = tag.get_text().replace('\xad', '')
     return RE_CLEAN_TEXT.sub(' ', text).strip()
 
 def protocol_meta_data(period, index, soup):
@@ -224,7 +236,7 @@ def parse_speaker_intro(speaker_tag, meta_data=None):
 
     """
     # Get the speaker tag text, without tags
-    text = clean_text(speaker_tag.get_text())
+    text = clean_tag_text(speaker_tag)
 
     # Match speaker declarations
     speaker_name = None
@@ -247,13 +259,13 @@ def parse_speaker_intro(speaker_tag, meta_data=None):
         speaker_name = match.group(1)
         speaker_ministry = match.group(2)
         speech = text[match.end():]
-    if 0:
-        # ROLE_NAME_RE doesn't work correctly (yet)
-        match = ROLE_NAME_RE.match(text)
-        if match is not None:
-            speaker_name = match.group(1)
-            speaker_role_descr = match.group(2)
-            speech = text[match.end():]
+    match = OTHER_ROLE_NAME_RE.match(text)
+    if match is not None:
+        speaker_name = match.group(1)
+        speaker_role_descr = match.group(2)
+        if verbose > 1:
+            print (f'  Found other speaker role: {text!r}')
+        speech = text[match.end():]
 
     if speaker_name is None:
         raise ParserError('Could not match speaker name: %r' % text)
@@ -294,10 +306,10 @@ def parse_speaker_intro(speaker_tag, meta_data=None):
 def parse_speech_paragraph(speech_tag, meta_data=None):
 
     # Get the speech tag text, without tags
-    text = clean_text(speech_tag.get_text())
+    text = clean_tag_text(speech_tag)
 
     # Return paragraph data
-    d = dict(speech=clean_text(text))
+    d = dict(speech=text)
     if meta_data is not None:
         d.update(meta_data)
     return d
@@ -305,7 +317,7 @@ def parse_speech_paragraph(speech_tag, meta_data=None):
 def parse_annotation_paragraph(speech_tag, meta_data=None):
 
     # Get the speech tag text, without tags
-    text = clean_text(speech_tag.get_text())
+    text = clean_tag_text(speech_tag)
 
     # Remove parens
     text = text.lstrip('(')
@@ -320,7 +332,7 @@ def parse_annotation_paragraph(speech_tag, meta_data=None):
 def parse_citation_paragraph(speech_tag, meta_data=None):
 
     # Get the speech tag text, without tags
-    text = clean_text(speech_tag.get_text())
+    text = clean_tag_text(speech_tag)
 
     # Remove parens
     text = text.lstrip('„"\'')
@@ -379,7 +391,7 @@ def parse_protocol(soup):
                 print (f'WARNING: Speaker intro paragraph without speaker information: '
                     f'{error}')
                 # Parse the speaker intro as regular paragraph instead
-                text = clean_text(tag.get_text())
+                text = clean_tag_text(tag)
                 if text.startswith('('):
                     p_class.add('kKlammer')
                 else:
@@ -420,12 +432,12 @@ def parse_protocol(soup):
             # Annotation paragraph
             paragraph = parse_annotation_paragraph(tag, meta_data=section_meta_data)
             if verbose:
-                print (f'    Found annotation paragraph {paragraph}')
+                print (f'  Found annotation paragraph {paragraph}')
         elif CITATION_CLASSES & p_class:
             # Citation paragraph
             paragraph = parse_citation_paragraph(tag, meta_data=section_meta_data)
             if verbose:
-                print (f'    Found citation paragraph {paragraph}')
+                print (f'  Found citation paragraph {paragraph}')
         else:
             raise ParserError(f'Could not parse section {p_class}: {tag}')
 

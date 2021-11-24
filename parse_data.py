@@ -487,7 +487,7 @@ def main():
                 continue
             index = protocol['index']
             print ('-' * 72)
-            print (f'Processing {period}-{index}: {filename}')
+            print (f'Parsing {period}-{index}: {filename}')
             process_protocol(period, index)
 
 ###

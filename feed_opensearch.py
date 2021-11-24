@@ -117,7 +117,7 @@ def main():
                 continue
             index = protocol['index']
             print ('-' * 72)
-            print (f'Processing protocol {period}-{index}')
+            print (f'Feeding protocol {period}-{index} to OpenSearch')
             process_protocol(period, index)
 
 ###

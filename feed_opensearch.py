@@ -8,6 +8,17 @@
 import sys
 import os
 import json
+
+# It would be better to use ES Python client, since this is more
+# up-to-date than the OpenSearch one, but the ES client fails with an
+# error: elasticsearch.exceptions.UnsupportedProductError: The client
+# noticed that the server is not Elasticsearch and we do not support
+# this unknown product when connecting to an OpenSearch instance.
+#
+#   import elasticsearch as opensearchpy
+#   import elasticsearch.helpers as opensearchpy_helpers
+#   opensearchpy.helpers = opensearchpy_helpers
+#   opensearchpy.OpenSearch = opensearchpy.Elasticsearch
 import opensearchpy
 import opensearchpy.helpers
 
@@ -23,6 +34,33 @@ from settings import (
 
 # Name of the main index in OS
 INDEX_NAME = 'nrw_landtag_protocols'
+
+# Index template to use
+INDEX_TEMPLATE = json.dumps({
+    'index_patterns': [INDEX_NAME],
+    'template': {
+        'mappings': {
+            'properties': {
+                'protocol_date': { 'type': 'date' },
+                'protocol_title': { 'type': 'text' },
+                'protocol_period': { 'type': 'integer' },
+                'protocol_index': { 'type': 'integer' },
+                'protocol_url': { 'type': 'url' },
+                'speaker_name': { 'type': 'keyword' },
+                'speaker_party': { 'type': 'keyword' },
+                'speaker_ministry': { 'type': 'keyword' },
+                'speaker_role': { 'type': 'keyword' },
+                'speaker_role_descr': { 'type': 'keyword' },
+                'speech': { 'type': 'text' },
+                'annotation': { 'type': 'text' },
+                'citation': { 'type': 'text' },
+                'html_class': { 'type': 'keyword' },
+                'flow_index': { 'type': 'integer' },
+                'speaker_flow_index': { 'type': 'integer' },
+            }
+        }
+    }
+})
 
 # Verbosity
 verbose = 0
@@ -95,6 +133,13 @@ def process_protocol(period, index, os_index_name=INDEX_NAME):
     """
     with opensearch_client() as client:
         protocol = load_json_protocol(period, index)
+        if not client.indices.exists(os_index_name):
+            # Create an index template for the index, which provides the
+            # mappings to be used for the index
+            client.indices.put_template(
+                name=os_index_name,
+                body=INDEX_TEMPLATE,
+            )
         for result in opensearchpy.helpers.streaming_bulk(
                 client,
                 bulk_insert_generator(protocol, index_name=os_index_name),

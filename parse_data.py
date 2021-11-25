@@ -48,7 +48,7 @@ NON_SPEAKER_INTRO_RE = re.compile(
     # short phrases indicating non-name
     'Ich |Die |Der |Das |Mit |Auch |Es |Wir |Ein |Eine |Hier |Meine |'
     'Bitte |Aber |Frau |Herr |Nach |Gemäß |Für |Zur |In |Ihnen |Art. |'
-    'Gibt |Für |Liebe |Da '
+    'Gibt |Für |Liebe |Lieber |Da |So |Als '
     )
 
 # REs for parsing the speaker intros in parse_speaker_intro()

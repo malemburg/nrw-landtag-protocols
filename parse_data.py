@@ -98,7 +98,7 @@ TYPO_FIXES = {
 }
 
 # REs for parsing names in parse_speaker_intro()
-PRESIDENT_RE = re.compile('((?:geschäftsführender? )?präsident(?:in)?) (.+)', re.I)
+PRESIDENT_RE = re.compile('((?:geschäftsführender? |alters)?präsident(?:in)?) (.+)', re.I)
 VICE_PRESIDENT_RE = re.compile('((?:geschäftsführender? )?vizepräsident(?:in)?) (.+)', re.I)
 MINISTER_RE = re.compile('((?:geschäftsführender? )?minister(?:in)?) (.+)', re.I)
 

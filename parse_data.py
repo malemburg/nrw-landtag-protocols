@@ -30,6 +30,9 @@ from settings import (
 # Verbosity
 verbose = 0
 
+# Remove citation marks ?
+REMOVE_CITATION_MARKS = False
+
 # REs for find_start() and find_end()
 BEGIN_RE = re.compile('Beginn:|Beginn \d\d[:\.]\d\d|Seite 3427')
 # "Seite 3427" - problem in 14-32
@@ -355,9 +358,10 @@ def parse_citation_paragraph(speech_tag, meta_data=None):
     # Get the speech tag text, without tags
     text = clean_tag_text(speech_tag)
 
-    # Remove parens
-    text = text.lstrip('„"\'')
-    text = text.rstrip('“"\'')
+    # Remove parens and trailing commas
+    if REMOVE_CITATION_MARKS:
+        text = text.lstrip('„"\'')
+        text = text.rstrip('“"\',')
 
     # Return paragraph data
     d = dict(citation=clean_text(text))

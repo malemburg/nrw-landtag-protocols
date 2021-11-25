@@ -44,11 +44,16 @@ PAGE_RE = re.compile('Seite \d+')
 
 # Cases where parse_speaker_intro() will not match and no logging should happen
 NON_SPEAKER_INTRO_RE = re.compile(
-    '[a-z\-–„]|'  # first char is lower case or continuation/bullet/etc
+    '[a-z\-–-„()…?]|'  # first char is lower case or continuation/bullet/etc
     # short phrases indicating non-name
-    'Ich |Die |Der |Das |Mit |Auch |Es |Wir |Ein |Eine |Hier |Meine |'
+    'Ich |Die |Der |Das |Dieses |Mit |Auch |Es |Wir |Ein |Eine |Hier |Meine |'
     'Bitte |Aber |Frau |Herr |Nach |Gemäß |Für |Zur |In |Ihnen |Art. |'
-    'Gibt |Für |Liebe |Lieber |Da |So |Als '
+    'Gibt |Für |Liebe |Lieber |Da |So |Als |Jetzt |Wird |Hierzu |'
+    'Dieser |Diese |Dann |Denn |'
+    # longer phrases which are incorrectly assigned
+    'Gesetz |Beantwortung |Zu dem |Kurz einmal |Werbesendung |'
+    'Grünen fallen |Interview |Sie |Um mit |Westfalen |Frage: |'
+    'Vielen Dank '
     )
 
 # REs for parsing the speaker intros in parse_speaker_intro()
@@ -61,7 +66,9 @@ SPEAKER_NAME_RE = re.compile(
 SPEAKER_PARTY_NAME_RE = re.compile(
     '(' + NAME_DEF + ')'                        # name
     '(?:\*\))? ?'                               # optional *) marker
-    '([\(\[]\w+[\)\]]|\w+[\)\]]|[\(\[]\w+) ?'   # (party) or [party]
+    '([\(\[]\w+[\)\]]|'                         # (party) or [party]
+    #' \w+[\)\]]|' # disabling part) or party], since it often fails
+    '[\(\[]\w+) ?'                              # (party or [party
     ':?', re.I)                                 # final : (sometimes omitted)
 MINISTER_NAME_RE = re.compile(
     '(' + NAME_DEF + ')'
@@ -86,20 +93,39 @@ assert MINISTER_NAME_RE.match('Dr. N W-B, Finanzminister: Text')
 # Fritz Fischer SPD):
 # Fritz Fischer (SPD]:
 
+# Remaining problem cases:
+# 'Anne-José Paulsen und Dr. Wilfried Bünten' (14-107)
+
+
 # Typo fixes to apply in typo_fixes(); these are applied to cleaned tag texts
 TYPO_FIXES = {
     # Original string, substitution string
     'Oliver Wittke,, Minister für Bauen und Verkehr:': 'Oliver Wittke, Minister für Bauen und Verkehr:',
     'Michael Breuer, Minister für Bundes? und Europaangelegenheiten:': 'Michael Breuer, Minister für Bundes- und Europaangelegenheiten:',
-    'Horst Enge*)l (FDP):': 'Horst Engel*) (FDP):',
-    'Armin Laschet*) Minister für Generationen, Familie, Frauen und Integration:': 'Armin Laschet*), Minister für Generationen, Familie, Frauen und Integration:',
     'Svenja Schulze, Ministerin für Innovation, Wissenschaft und Forschung ': 'Svenja Schulze, Ministerin für Innovation, Wissenschaft und Forschung:',
     'Vizepräsidentin Angela Freimuth ': 'Vizepräsidentin Angela Freimuth: ',
+    'Susana Dos Santos Herrmann': 'Susana dos Santos Herrmann',
+    'Minister Uhlenberg': 'Minister Eckhard Uhlenberg',
+    'Carina Gödeke': 'Carina Gödecke',
+    'Vizepräsidentin Carina Gödeke': 'Vizepräsidentin Carina Gödecke',
+    'Brigitte D’moch-Schweren': 'Brigitte Dmoch-Schweren',
+    # Footnote mark typos
+    'Verena Schäffe*)': 'Verena Schäffer*)',
+    'Horst Enge*)l (FDP):': 'Horst Engel*) (FDP):',
+    'Armin Laschet*) Minister für Generationen, Familie, Frauen und Integration:': 'Armin Laschet*), Minister für Generationen, Familie, Frauen und Integration:',
+    # Typos in party mentions
+    'Hubertus Fehring) (CDU):': 'Hubertus Fehring (CDU):',
+    'Heiko Hendriks) (CDU):': 'Heiko Hendriks (CDU):',
+    'Frank Herrmann PIRATEN):': 'Frank Herrmann (PIRATEN):',
+    'Sigrid Beer GRÜNE):': 'Sigrid Beer (GRÜNE):',
+    'Dr. Robert Orth FDP):': 'Dr. Robert Orth (FDP):',
+    'Rainer Deppe CDU):': 'Rainer Deppe (CDU):',
+    'Ralf Witzel FDP):': 'Ralf Witzel (FDP):'
 }
 
 # REs for parsing names in parse_speaker_intro()
-PRESIDENT_RE = re.compile('((?:geschäftsführender? |alters)?präsident(?:in)?) (.+)', re.I)
-VICE_PRESIDENT_RE = re.compile('((?:geschäftsführender? )?vizepräsident(?:in)?) (.+)', re.I)
+PRESIDENT_RE = re.compile('((?:geschäftsführender? |alters|minister)?präsident(?:in)?) (.+)', re.I)
+VICE_PRESIDENT_RE = re.compile('((?:geschäftsführender? |minister)?vizepräsident(?:in)?) (.+)', re.I)
 MINISTER_RE = re.compile('((?:geschäftsführender? )?minister(?:in)?) (.+)', re.I)
 
 # RE for clean_text()
@@ -292,6 +318,10 @@ def parse_speaker_intro(speaker_tag, tag_text, meta_data=None):
         meta_data is added to the dictionary, if given.
 
     """
+    # Catch common errors
+    if NON_SPEAKER_INTRO_RE.match(tag_text) is not None:
+        raise ParserError('Paragraph is not a true speaker intro: %r' % tag_text)
+
     # Match speaker declarations
     speaker_name = None
     speaker_party = None
@@ -306,7 +336,8 @@ def parse_speaker_intro(speaker_tag, tag_text, meta_data=None):
     match = SPEAKER_PARTY_NAME_RE.match(tag_text)
     if match is not None:
         speaker_name = match.group(1)
-        speaker_party = match.group(2)[1:-1]
+        speaker_party = match.group(2)
+        speaker_party = speaker_party.strip('([]) ')
         speech = tag_text[match.end():]
     match = MINISTER_NAME_RE.match(tag_text)
     if match is not None:

@@ -131,9 +131,17 @@ MINISTER_RE = re.compile('((?:geschäftsführender? )?minister(?:in)?) (.+)', re
 # RE for clean_text()
 RE_CLEAN_TEXT = re.compile('[\s]+')
 
+# Helper for sets of Word classes
+def lowercase_set(sequence):
+
+    """ Create a set from sequence, with all entries converted to lower case.
+
+    """
+    return set((x.lower() for x in sequence))
+
 # Sets of paragraph classes used to parse the protocols
-SPEAKER_INTRO_CLASSES = set(('rRednerkopf', 'rRednerkopf0', 'fZwischenfrage'))
-SPEECH_CLASSES = set((
+SPEAKER_INTRO_CLASSES = lowercase_set(('rRednerkopf', 'rRednerkopf0', 'fZwischenfrage'))
+SPEECH_CLASSES = lowercase_set((
                 'aStandardabsatz',
                 'aAbsatz',
                 # Misc other Word classes used in the texts
@@ -157,8 +165,8 @@ SPEECH_CLASSES = set((
                 # Obvious mistakes
                 'sSchluss',
                 ))
-ANNOTATION_CLASSES = set(('kKlammer', 'kKlammern', 'wVorsitzwechsel'))
-CITATION_CLASSES = set(('zZitat', 'eZitat-Einrckung'))
+ANNOTATION_CLASSES = lowercase_set(('kKlammer', 'kKlammern', 'wVorsitzwechsel'))
+CITATION_CLASSES = lowercase_set(('zZitat', 'eZitat-Einrckung'))
 
 ### Errors
 
@@ -452,9 +460,9 @@ def parse_protocol(soup):
         if tag == protocol_end:
             break
 
-        # Find "Word" style class
-        p_class = set(tag.get('class'))
-        #print (f'Found tag {p_class}: {tag}')
+        # Find "Word" style class and convert to lower case for matching
+        p_classes = set((x.lower() for x in tag.get('class')))
+        #print (f'Found tag classes {p_classes}: {tag}')
 
         # Get clean tag text (without any HTML tags)
         tag_text = clean_tag_text(tag)
@@ -473,7 +481,7 @@ def parse_protocol(soup):
         paragraph = None
 
         # Parse new speaker section
-        if SPEAKER_INTRO_CLASSES & p_class:
+        if SPEAKER_INTRO_CLASSES & p_classes:
             try:
                 paragraph = parse_speaker_intro(tag, tag_text, protocol_meta_data)
             except ParserError as error:
@@ -484,9 +492,9 @@ def parse_protocol(soup):
                            f'{error}')
                 # Parse the speaker intro as regular paragraph instead
                 if tag_text.startswith('('):
-                    p_class.add('kKlammer')
+                    p_classes.add('kklammer')
                 else:
-                    p_class.add('aStandardabsatz')
+                    p_classes.add('astandardabsatz')
 
             else:
                 # Start of a new speaker section
@@ -514,26 +522,26 @@ def parse_protocol(soup):
         if paragraph is not None:
             # Already found a usable paragraph
             pass
-        elif SPEECH_CLASSES & p_class:
+        elif SPEECH_CLASSES & p_classes:
             # Standard paragraph
             paragraph = parse_speech_paragraph(tag, tag_text, meta_data=section_meta_data)
             if verbose:
                 print (f'  Found speech paragraph {paragraph}')
-        elif ANNOTATION_CLASSES & p_class:
+        elif ANNOTATION_CLASSES & p_classes:
             # Annotation paragraph
             paragraph = parse_annotation_paragraph(tag, tag_text, meta_data=section_meta_data)
             if verbose:
                 print (f'  Found annotation paragraph {paragraph}')
-        elif CITATION_CLASSES & p_class:
+        elif CITATION_CLASSES & p_classes:
             # Citation paragraph
             paragraph = parse_citation_paragraph(tag, tag_text, meta_data=section_meta_data)
             if verbose:
                 print (f'  Found citation paragraph {paragraph}')
         else:
-            raise ParserError(f'Could not parse section {p_class}: {tag}')
+            raise ParserError(f'Could not parse section {p_classes}: {tag}')
 
         # Add paragraph
-        paragraph['html_class'] = ', '.join(p_class)
+        paragraph['html_class'] = ', '.join(p_classes)
         paragraph['flow_index'] = p_counter
         paragraph['speaker_flow_index'] = speaker_section_counter
         paragraphs.append(paragraph)
@@ -543,6 +551,8 @@ def parse_protocol(soup):
     else:
         raise ParserError(f'Could not find end tag in protocol')
 
+    if not paragraphs:
+        print (f'WARNING: No paragraphs parsed for this protocol !!!')
     return paragraphs
 
 def process_protocol(period, index):

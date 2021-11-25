@@ -3,10 +3,8 @@
     Parse HTML session protocols of the NRW Landtag.
 
     TODO:
-    - Address typo fixes (which cannot be solved using REs)
     - split multiple annotations in one paragraph into separate
       paragraph entries in the data
-    - try to detect annotations which do not have the correct class
     - double check the detected names; the REs may match too much text
 
     Written by Marc-Andre Lemburg, Nov 2021
@@ -41,6 +39,18 @@ END_RE = re.compile('Schluss:|Ende:|__________')
 # REs for parsing the document date
 DATE_RE = re.compile('((\d\d)\.(\d\d)\.(\d\d\d\d))')
 
+# Page numbering filter
+PAGE_RE = re.compile('Seite \d+')
+
+# Cases where parse_speaker_intro() will not match and no logging should happen
+NON_SPEAKER_INTRO_RE = re.compile(
+    '[a-z\-–„]|'  # first char is lower case or continuation/bullet/etc
+    # short phrases indicating non-name
+    'Ich |Die |Der |Das |Mit |Auch |Es |Wir |Ein |Eine |Hier |Meine |'
+    'Bitte |Aber |Frau |Herr |Nach |Gemäß |Für |Zur |In |Ihnen |Art. |'
+    'Gibt |Für |Liebe |Da '
+    )
+
 # REs for parsing the speaker intros in parse_speaker_intro()
 NAME_DEF = '[\w\-‑.’\' ]+'
 SPEAKER_NAME_RE = re.compile(
@@ -68,17 +78,24 @@ OTHER_ROLE_NAME_RE = re.compile(
     '(\w*präsident[\w\-‑.,() ]*)'               # *Präsident*
     ':', re.I)                                  # final :
 
+# Quick tests:
+assert MINISTER_NAME_RE.match('Dr. N W-B, Finanzminister: Text')
+
 # Some of the errors found in texts:
 # Fritz Fischer (CDU:
 # Fritz Fischer SPD):
 # Fritz Fischer (SPD]:
 
-# XXX These errors cannot be parsed and will need a typo fix:
-# Vizepräsidentin Angela Freimuth Es ist ...
-# Ansprache des Landtagspräsidenten André Kuper ...
-
-# Quick tests:
-assert MINISTER_NAME_RE.match('Dr. N W-B, Finanzminister: Text')
+# Typo fixes to apply in typo_fixes(); these are applied to cleaned tag texts
+TYPO_FIXES = {
+    # Original string, substitution string
+    'Oliver Wittke,, Minister für Bauen und Verkehr:': 'Oliver Wittke, Minister für Bauen und Verkehr:',
+    'Michael Breuer, Minister für Bundes? und Europaangelegenheiten:': 'Michael Breuer, Minister für Bundes- und Europaangelegenheiten:',
+    'Horst Enge*)l (FDP):': 'Horst Engel*) (FDP):',
+    'Armin Laschet*) Minister für Generationen, Familie, Frauen und Integration:': 'Armin Laschet*), Minister für Generationen, Familie, Frauen und Integration:',
+    'Svenja Schulze, Ministerin für Innovation, Wissenschaft und Forschung ': 'Svenja Schulze, Ministerin für Innovation, Wissenschaft und Forschung:',
+    'Vizepräsidentin Angela Freimuth ': 'Vizepräsidentin Angela Freimuth: ',
+}
 
 # REs for parsing names in parse_speaker_intro()
 PRESIDENT_RE = re.compile('((?:geschäftsführender? )?präsident(?:in)?) (.+)', re.I)
@@ -174,6 +191,21 @@ def clean_tag_text(tag):
     text = tag.get_text().replace('\xad', '')
     return RE_CLEAN_TEXT.sub(' ', text).strip()
 
+def typo_fixes(text):
+
+    """ Apply typo fixes to text and return the corrected text.
+
+        The typos are matched against the start of the text and must
+        match verbatim.
+
+    """
+    # Replace
+    match = text.startswith
+    for typo, fix in TYPO_FIXES.items():
+        if match(typo):
+            text = fix + text[len(typo):]
+    return text
+
 def protocol_meta_data(period, index, soup):
 
     """ Return meta data to associate with the protocol
@@ -244,24 +276,22 @@ def find_end(soup):
     protocol_end =  end_text.find_parent('p')
     return protocol_end
 
-def parse_speaker_intro(speaker_tag, meta_data=None):
+def parse_speaker_intro(speaker_tag, tag_text, meta_data=None):
 
-    """ Parse the speaker_tag from the protocol and return a dictionary
-        with the following entries:
+    """ Parse the speaker_tag's tag_text from the protocol and return a
+        dictionary with the following entries:
 
-        speaker_name: Name of the speaker
-        speaker_party: party of the speaker, if given, None otherwise
-        speaker_ministry: ministry, the speaker is minister of, None otherwise
-        speaker_role: president, vice-president, minister, or None
-        speaker_role_descr: role wording, or None
-        speech: Text of speech in this paragraph, if any, or None
+        - speaker_name: Name of the speaker
+        - speaker_party: party of the speaker, if given, None otherwise
+        - speaker_ministry: ministry, the speaker is minister of, None
+          otherwise
+        - speaker_role: president, vice-president, minister, or None
+        - speaker_role_descr: role wording, or None
+        - speech: Text of speech in this paragraph, if any, or None
 
         meta_data is added to the dictionary, if given.
 
     """
-    # Get the speaker tag text, without tags
-    text = clean_tag_text(speaker_tag)
-
     # Match speaker declarations
     speaker_name = None
     speaker_party = None
@@ -269,30 +299,30 @@ def parse_speaker_intro(speaker_tag, meta_data=None):
     speaker_role = None
     speaker_role_descr = None
     speech = None
-    match = SPEAKER_NAME_RE.match(text)
+    match = SPEAKER_NAME_RE.match(tag_text)
     if match is not None:
         speaker_name = match.group(1)
-        speech = text[match.end():]
-    match = SPEAKER_PARTY_NAME_RE.match(text)
+        speech = tag_text[match.end():]
+    match = SPEAKER_PARTY_NAME_RE.match(tag_text)
     if match is not None:
         speaker_name = match.group(1)
         speaker_party = match.group(2)[1:-1]
-        speech = text[match.end():]
-    match = MINISTER_NAME_RE.match(text)
+        speech = tag_text[match.end():]
+    match = MINISTER_NAME_RE.match(tag_text)
     if match is not None:
         speaker_name = match.group(1)
         speaker_ministry = match.group(2)
-        speech = text[match.end():]
-    match = OTHER_ROLE_NAME_RE.match(text)
+        speech = tag_text[match.end():]
+    match = OTHER_ROLE_NAME_RE.match(tag_text)
     if match is not None:
         speaker_name = match.group(1)
         speaker_role_descr = match.group(2)
         if verbose > 1:
-            print (f'  Found other speaker role: {text!r}')
-        speech = text[match.end():]
+            print (f'  Found other speaker role: {tag_text!r}')
+        speech = tag_text[match.end():]
 
     if speaker_name is None:
-        raise ParserError('Could not match speaker name: %r' % text)
+        raise ParserError('Could not match speaker name: %r' % tag_text)
 
     # Parse role and remove from name
     match = PRESIDENT_RE.match(speaker_name)
@@ -327,44 +357,35 @@ def parse_speaker_intro(speaker_tag, meta_data=None):
         d.update(meta_data)
     return d
 
-def parse_speech_paragraph(speech_tag, meta_data=None):
-
-    # Get the speech tag text, without tags
-    text = clean_tag_text(speech_tag)
+def parse_speech_paragraph(speech_tag, tag_text, meta_data=None):
 
     # Return paragraph data
-    d = dict(speech=text)
+    d = dict(speech=tag_text)
     if meta_data is not None:
         d.update(meta_data)
     return d
 
-def parse_annotation_paragraph(speech_tag, meta_data=None):
-
-    # Get the speech tag text, without tags
-    text = clean_tag_text(speech_tag)
+def parse_annotation_paragraph(speech_tag, tag_text, meta_data=None):
 
     # Remove parens
-    text = text.lstrip('(')
-    text = text.rstrip(')')
+    tag_text = tag_text.lstrip('(')
+    tag_text = tag_text.rstrip(')')
 
     # Return paragraph data
-    d = dict(annotation=clean_text(text))
+    d = dict(annotation=clean_text(tag_text))
     if meta_data is not None:
         d.update(meta_data)
     return d
 
-def parse_citation_paragraph(speech_tag, meta_data=None):
-
-    # Get the speech tag text, without tags
-    text = clean_tag_text(speech_tag)
+def parse_citation_paragraph(speech_tag, tag_text, meta_data=None):
 
     # Remove parens and trailing commas
     if REMOVE_CITATION_MARKS:
-        text = text.lstrip('„"\'')
-        text = text.rstrip('“"\',')
+        tag_text = tag_text.lstrip('„"\'')
+        tag_text = tag_text.rstrip('“"\',')
 
     # Return paragraph data
-    d = dict(citation=clean_text(text))
+    d = dict(citation=clean_text(tag_text))
     if meta_data is not None:
         d.update(meta_data)
     return d
@@ -404,20 +425,34 @@ def parse_protocol(soup):
         p_class = set(tag.get('class'))
         #print (f'Found tag {p_class}: {tag}')
 
+        # Get clean tag text (without any HTML tags)
+        tag_text = clean_tag_text(tag)
+
+        # Skip empty paragraphs and page numbering
+        if not tag_text:
+            continue
+        match = PAGE_RE.match(tag_text)
+        if match is not None:
+            continue
+
+        # Apply typo fixes to tag_text
+        tag_text = typo_fixes(tag_text)
+
         # Parse paragraph
         paragraph = None
 
         # Parse new speaker section
         if SPEAKER_INTRO_CLASSES & p_class:
             try:
-                paragraph = parse_speaker_intro(tag, protocol_meta_data)
+                paragraph = parse_speaker_intro(tag, tag_text, protocol_meta_data)
             except ParserError as error:
                 # False speaker change
-                print (f'WARNING: Speaker intro paragraph without speaker information: '
-                    f'{error}')
+                if verbose > 1 or NON_SPEAKER_INTRO_RE.match(tag_text) is None:
+                    # Only report
+                    print (f'WARNING: Speaker intro paragraph without speaker information: '
+                           f'{error}')
                 # Parse the speaker intro as regular paragraph instead
-                text = clean_tag_text(tag)
-                if text.startswith('('):
+                if tag_text.startswith('('):
                     p_class.add('kKlammer')
                 else:
                     p_class.add('aStandardabsatz')
@@ -450,17 +485,17 @@ def parse_protocol(soup):
             pass
         elif SPEECH_CLASSES & p_class:
             # Standard paragraph
-            paragraph = parse_speech_paragraph(tag, meta_data=section_meta_data)
+            paragraph = parse_speech_paragraph(tag, tag_text, meta_data=section_meta_data)
             if verbose:
                 print (f'  Found speech paragraph {paragraph}')
         elif ANNOTATION_CLASSES & p_class:
             # Annotation paragraph
-            paragraph = parse_annotation_paragraph(tag, meta_data=section_meta_data)
+            paragraph = parse_annotation_paragraph(tag, tag_text, meta_data=section_meta_data)
             if verbose:
                 print (f'  Found annotation paragraph {paragraph}')
         elif CITATION_CLASSES & p_class:
             # Citation paragraph
-            paragraph = parse_citation_paragraph(tag, meta_data=section_meta_data)
+            paragraph = parse_citation_paragraph(tag, tag_text, meta_data=section_meta_data)
             if verbose:
                 print (f'  Found citation paragraph {paragraph}')
         else:

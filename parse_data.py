@@ -53,7 +53,7 @@ NON_SPEAKER_INTRO_RE = re.compile(
     # longer phrases which are incorrectly assigned
     'Gesetz |Beantwortung |Zu dem |Kurz einmal |Werbesendung |'
     'Grünen fallen |Interview |Sie |Um mit |Westfalen |Frage: |'
-    'Vielen Dank '
+    'Vielen Dank |Wichtiges '
     )
 
 # REs for parsing the speaker intros in parse_speaker_intro()
@@ -109,10 +109,13 @@ TYPO_FIXES = {
     'Carina Gödeke': 'Carina Gödecke',
     'Vizepräsidentin Carina Gödeke': 'Vizepräsidentin Carina Gödecke',
     'Brigitte D’moch-Schweren': 'Brigitte Dmoch-Schweren',
+    'Eckart Uhlenberg': 'Eckhard Uhlenberg',
+    'Margret Vosseler': 'Margret Voßeler',
     # Footnote mark typos
     'Verena Schäffe*)': 'Verena Schäffer*)',
     'Horst Enge*)l (FDP):': 'Horst Engel*) (FDP):',
     'Armin Laschet*) Minister für Generationen, Familie, Frauen und Integration:': 'Armin Laschet*), Minister für Generationen, Familie, Frauen und Integration:',
+    'Wibke Brem*)': 'Wibke Brems',
     # Typos in party mentions
     'Hubertus Fehring) (CDU):': 'Hubertus Fehring (CDU):',
     'Heiko Hendriks) (CDU):': 'Heiko Hendriks (CDU):',
@@ -125,7 +128,7 @@ TYPO_FIXES = {
 
 # REs for parsing names in parse_speaker_intro()
 PRESIDENT_RE = re.compile('((?:geschäftsführender? |alters|minister)?präsident(?:in)?) (.+)', re.I)
-VICE_PRESIDENT_RE = re.compile('((?:geschäftsführender? |minister)?vizepräsident(?:in)?) (.+)', re.I)
+VICE_PRESIDENT_RE = re.compile('((?:geschäftsführender? (?:erster? )|minister)?vizepräsident(?:in)?) (.+)', re.I)
 MINISTER_RE = re.compile('((?:geschäftsführender? )?minister(?:in)?) (.+)', re.I)
 
 # RE for clean_text()

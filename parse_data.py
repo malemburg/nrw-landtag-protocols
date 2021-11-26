@@ -53,7 +53,7 @@ NON_SPEAKER_INTRO_RE = re.compile(
     # longer phrases which are incorrectly assigned
     'Gesetz |Beantwortung |Zu dem |Kurz einmal |Werbesendung |'
     'Grünen fallen |Interview |Sie |Um mit |Westfalen |Frage: |'
-    'Vielen Dank |Wichtiges '
+    'Vielen Dank |Wichtiges |Erstens: |Muster ab'
     )
 
 # REs for parsing the speaker intros in parse_speaker_intro()
@@ -96,25 +96,32 @@ assert MINISTER_NAME_RE.match('Dr. N W-B, Finanzminister: Text')
 # Remaining problem cases:
 # 'Anne-José Paulsen und Dr. Wilfried Bünten' (14-107)
 
-
 # Typo fixes to apply in typo_fixes(); these are applied to cleaned tag texts
 TYPO_FIXES = {
     # Original string, substitution string
-    'Oliver Wittke,, Minister für Bauen und Verkehr:': 'Oliver Wittke, Minister für Bauen und Verkehr:',
-    'Michael Breuer, Minister für Bundes? und Europaangelegenheiten:': 'Michael Breuer, Minister für Bundes- und Europaangelegenheiten:',
-    'Svenja Schulze, Ministerin für Innovation, Wissenschaft und Forschung ': 'Svenja Schulze, Ministerin für Innovation, Wissenschaft und Forschung:',
+    'Oliver Wittke,, Minister für Bauen und Verkehr:':
+        'Oliver Wittke, Minister für Bauen und Verkehr:',
+    'Michael Breuer, Minister für Bundes? und Europaangelegenheiten:':
+        'Michael Breuer, Minister für Bundes- und Europaangelegenheiten:',
+    'Svenja Schulze, Ministerin für Innovation, Wissenschaft und Forschung ':
+        'Svenja Schulze, Ministerin für Innovation, Wissenschaft und Forschung:',
     'Vizepräsidentin Angela Freimuth ': 'Vizepräsidentin Angela Freimuth: ',
     'Susana Dos Santos Herrmann': 'Susana dos Santos Herrmann',
     'Minister Uhlenberg': 'Minister Eckhard Uhlenberg',
     'Carina Gödeke': 'Carina Gödecke',
+    'Carina: ': 'Vizepräsidentin Carina Gödecke: ',
+    'Vizepräsidentin Carina: ': 'Vizepräsidentin Carina Gödecke: ',
     'Vizepräsidentin Carina Gödeke': 'Vizepräsidentin Carina Gödecke',
     'Brigitte D’moch-Schweren': 'Brigitte Dmoch-Schweren',
     'Eckart Uhlenberg': 'Eckhard Uhlenberg',
     'Margret Vosseler': 'Margret Voßeler',
+    'Präsident André: ': 'Präsident André Kuper: ',
+    'Vizepräsident Dr. Papke: ': 'Vizepräsident Dr. Gerhard Papke: ',
     # Footnote mark typos
     'Verena Schäffe*)': 'Verena Schäffer*)',
     'Horst Enge*)l (FDP):': 'Horst Engel*) (FDP):',
-    'Armin Laschet*) Minister für Generationen, Familie, Frauen und Integration:': 'Armin Laschet*), Minister für Generationen, Familie, Frauen und Integration:',
+    'Armin Laschet*) Minister für Generationen, Familie, Frauen und Integration:':
+        'Armin Laschet*), Minister für Generationen, Familie, Frauen und Integration:',
     'Wibke Brem*)': 'Wibke Brems',
     # Typos in party mentions
     'Hubertus Fehring) (CDU):': 'Hubertus Fehring (CDU):',
@@ -123,7 +130,8 @@ TYPO_FIXES = {
     'Sigrid Beer GRÜNE):': 'Sigrid Beer (GRÜNE):',
     'Dr. Robert Orth FDP):': 'Dr. Robert Orth (FDP):',
     'Rainer Deppe CDU):': 'Rainer Deppe (CDU):',
-    'Ralf Witzel FDP):': 'Ralf Witzel (FDP):'
+    'Ralf Witzel FDP):': 'Ralf Witzel (FDP):',
+    'Eiskirch (SPD):': 'Thomas Eiskirch (SPD):',
 }
 
 # REs for parsing names in parse_speaker_intro()
@@ -387,9 +395,15 @@ def parse_speaker_intro(speaker_tag, tag_text, meta_data=None):
     if speaker_role_descr is not None and speaker_role is None:
         speaker_role = 'other'
 
+    # Safety check
+    speaker_name = clean_text(speaker_name)
+    if len(speaker_name.split()) == 1:
+        print (f'WARNING: Speaker name is too short: '
+               f'{speaker_name} in {tag_text!r} ({speaker_tag}')
+
     # Return paragraph data
     d = dict(
-        speaker_name=clean_text(speaker_name),
+        speaker_name=speaker_name,
         speaker_party=clean_text(speaker_party),
         speaker_ministry=clean_text(speaker_ministry),
         speaker_role=speaker_role,

@@ -51,6 +51,7 @@ INDEX_TEMPLATE = json.dumps({
                 'speaker_ministry': { 'type': 'keyword' },
                 'speaker_role': { 'type': 'keyword' },
                 'speaker_role_descr': { 'type': 'keyword' },
+                'speaker_is_chair': { 'type': 'boolean' },
                 'speech': { 'type': 'text' },
                 'annotation': { 'type': 'text' },
                 'citation': { 'type': 'text' },
@@ -133,13 +134,12 @@ def process_protocol(period, index, os_index_name=INDEX_NAME):
     """
     with opensearch_client() as client:
         protocol = load_json_protocol(period, index)
-        if not client.indices.exists(os_index_name):
-            # Create an index template for the index, which provides the
-            # mappings to be used for the index
-            client.indices.put_template(
-                name=os_index_name,
-                body=INDEX_TEMPLATE,
-            )
+        # Create/update an index template for the index, which provides the
+        # mappings to be used for the index
+        client.indices.put_template(
+            name=os_index_name,
+            body=INDEX_TEMPLATE,
+        )
         for result in opensearchpy.helpers.streaming_bulk(
                 client,
                 bulk_insert_generator(protocol, index_name=os_index_name),

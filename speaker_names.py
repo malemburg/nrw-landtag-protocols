@@ -25,20 +25,16 @@ def find_all_speaker_names(os_index_name=feed_opensearch.INDEX_NAME):
         result = client.search(
             QUERY,
             index=os_index_name,
-            _source_includes=('speaker_name', 'speaker_party',
-                'protocol_period', 'protocol_index')
             )
         #print (f'result={result!r}')
         names = [
-            (hit['_source']['speaker_name'],
-             hit['_source']['speaker_party'],
-             hit['_source']['protocol_period'],
-             hit['_source']['protocol_index'])
+            hit['_source']
             for hit in result['hits']['hits']
         ]
-        return sorted(names)
+        return sorted(names, key=lambda x: x['speaker_name'])
 
 if __name__ == '__main__':
     speakers = find_all_speaker_names()
-    for speaker, party, period, index in speakers:
-        print (f'{speaker!r} ({party!r}) ({period}-{index})')
+    for data in speakers:
+        print (f'{data["speaker_name"]!r} ({data["speaker_party"]!r}) '
+               f'({data["protocol_period"]}-{data["protocol_index"]}): {data!r}')

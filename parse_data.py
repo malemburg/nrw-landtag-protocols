@@ -137,7 +137,12 @@ TYPO_FIXES = {
 # REs for parsing names in parse_speaker_intro()
 PRESIDENT_RE = re.compile('((?:geschäftsführender? |alters|minister)?präsident(?:in)?) (.+)', re.I)
 VICE_PRESIDENT_RE = re.compile('((?:geschäftsführender? (?:erster? )|minister)?vizepräsident(?:in)?) (.+)', re.I)
+SPEAKER_IS_CHAIR_RE = re.compile('((?:geschäftsführender? (?:erster? ))?(?:vize)?präsident(?:in)?) (.+)', re.I)
 MINISTER_RE = re.compile('((?:geschäftsführender? )?minister(?:in)?) (.+)', re.I)
+
+# Quick tests
+assert SPEAKER_IS_CHAIR_RE.match('Vizepräsidentin Carina Gödecke: ') is not None
+assert SPEAKER_IS_CHAIR_RE.match('Präsident André Kuper: ') is not None
 
 # RE for clean_text()
 RE_CLEAN_TEXT = re.compile('[\s]+')
@@ -178,6 +183,9 @@ SPEECH_CLASSES = lowercase_set((
                 ))
 ANNOTATION_CLASSES = lowercase_set(('kKlammer', 'kKlammern', 'wVorsitzwechsel'))
 CITATION_CLASSES = lowercase_set(('zZitat', 'eZitat-Einrckung'))
+
+# Sets of speaker_roles
+CHAIR_ROLES = set(('president', 'vice-president'))
 
 ### Errors
 
@@ -332,6 +340,8 @@ def parse_speaker_intro(speaker_tag, tag_text, meta_data=None):
           otherwise
         - speaker_role: president, vice-president, minister, or None
         - speaker_role_descr: role wording, or None
+        - speaker_is_chair: True, if the speaker is currently chair of
+          the session
         - speech: Text of speech in this paragraph, if any, or None
 
         meta_data is added to the dictionary, if given.
@@ -375,17 +385,18 @@ def parse_speaker_intro(speaker_tag, tag_text, meta_data=None):
         raise ParserError('Could not match speaker name: %r' % tag_text)
 
     # Parse role and remove from name
-    match = PRESIDENT_RE.match(speaker_name)
+    full_speaker_name = speaker_name
+    match = PRESIDENT_RE.match(full_speaker_name)
     if match is not None:
         speaker_role = 'president'
         speaker_role_descr = match.group(1)
         speaker_name = match.group(2)
-    match = VICE_PRESIDENT_RE.match(speaker_name)
+    match = VICE_PRESIDENT_RE.match(full_speaker_name)
     if match is not None:
         speaker_role = 'vice-president'
         speaker_role_descr = match.group(1)
         speaker_name = match.group(2)
-    match = MINISTER_RE.match(speaker_name)
+    match = MINISTER_RE.match(full_speaker_name)
     if match is not None:
         speaker_role = 'minister'
         speaker_role_descr = match.group(1)
@@ -394,6 +405,11 @@ def parse_speaker_intro(speaker_tag, tag_text, meta_data=None):
         speaker_role = 'minister'
     if speaker_role_descr is not None and speaker_role is None:
         speaker_role = 'other'
+    if (speaker_role in CHAIR_ROLES and
+        SPEAKER_IS_CHAIR_RE.match(full_speaker_name) is not None):
+        speaker_is_chair = True
+    else:
+        speaker_is_chair = False
 
     # Safety check
     speaker_name = clean_text(speaker_name)
@@ -408,6 +424,7 @@ def parse_speaker_intro(speaker_tag, tag_text, meta_data=None):
         speaker_ministry=clean_text(speaker_ministry),
         speaker_role=speaker_role,
         speaker_role_descr=speaker_role_descr,
+        speaker_is_chair=speaker_is_chair,
         speech=clean_text(speech))
     if meta_data is not None:
         d.update(meta_data)
@@ -521,6 +538,7 @@ def parse_protocol(soup):
                     'speaker_ministry': paragraph['speaker_ministry'],
                     'speaker_role': paragraph['speaker_role'],
                     'speaker_role_descr': paragraph['speaker_role_descr'],
+                    'speaker_is_chair': paragraph['speaker_is_chair'],
                 }
                 section_meta_data.update(protocol_meta_data)
                 previous_speaker = current_speaker
@@ -558,7 +576,7 @@ def parse_protocol(soup):
             raise ParserError(f'Could not parse section {p_classes}: {tag}')
 
         # Add paragraph
-        paragraph['html_class'] = ', '.join(p_classes)
+        paragraph['html_classes'] = sorted(p_classes)
         paragraph['flow_index'] = p_counter
         paragraph['speaker_flow_index'] = speaker_section_counter
         paragraphs.append(paragraph)

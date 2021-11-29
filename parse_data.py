@@ -590,6 +590,27 @@ def parse_protocol(soup):
         print (f'WARNING: No paragraphs parsed for this protocol !!!')
     return paragraphs
 
+def save_json_protocol(period, index, protocol):
+
+    """ Save protocol data to JSON file for period and index.
+
+    """
+    filename = os.path.join(
+        PROTOCOL_DIR,
+        PROTOCOL_FILE_TEMPLATE % (period, index, 'json'))
+    json.dump(protocol, open(filename, 'w', encoding='utf-8'))
+
+def load_json_protocol(period, index):
+
+    """ Load the JSON dump of the parsed protocol for period and index.
+
+    """
+    filename = os.path.join(
+        PROTOCOL_DIR,
+        PROTOCOL_FILE_TEMPLATE % (period, index, 'json'))
+    data = json.load(open(filename, 'r', encoding='utf-8'))
+    return data
+
 def process_protocol(period, index):
 
     html_filename = os.path.join(
@@ -605,8 +626,7 @@ def process_protocol(period, index):
     protocol['content'] = data
 
     # Dump data as JSON
-    json_filename = os.path.splitext(html_filename)[0] + '.json'
-    json.dump(protocol, open(json_filename, 'w', encoding='utf-8'))
+    save_json_protocol(period, index, protocol)
 
 def main():
 

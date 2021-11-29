@@ -23,6 +23,7 @@ import opensearchpy
 import opensearchpy.helpers
 
 import load_data
+import parse_data
 from settings import (
     PROTOCOL_DIR,
     PROTOCOL_FILE_TEMPLATE,
@@ -67,17 +68,6 @@ INDEX_TEMPLATE = json.dumps({
 verbose = 0
 
 ###
-
-def load_json_protocol(period, index):
-
-    """ Load the JSON dump of the parsed protocol for period and index.
-
-    """
-    filename = os.path.join(
-        PROTOCOL_DIR,
-        PROTOCOL_FILE_TEMPLATE % (period, index, 'json'))
-    data = json.load(open(filename, 'r', encoding='utf-8'))
-    return data
 
 def bulk_insert_generator(protocol, index_name):
 
@@ -133,7 +123,7 @@ def process_protocol(period, index, os_index_name=INDEX_NAME):
 
     """
     with opensearch_client() as client:
-        protocol = load_json_protocol(period, index)
+        protocol = parse_data.load_json_protocol(period, index)
         # Create/update an index template for the index, which provides the
         # mappings to be used for the index
         client.indices.put_template(

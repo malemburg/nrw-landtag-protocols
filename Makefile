@@ -13,6 +13,7 @@ packages:
 
 setup-os:
 	mkdir -p os-config os-data/node-1 os-data/node-2
+	touch os-config/opensearch.yml os-config/opensearch_dashboards.yml
 
 start-os:
 	docker-compose up -d
@@ -23,11 +24,11 @@ stop-os:
 ### Quick targets for the loader and parser
 
 load-all:
-	for i in 14 15 16 17; do load_data.py $$i; done
+	for i in 14 15 16 17 18; do load_data.py $$i; done
 
 parse-all:
-	for i in 14 15 16 17; do parse_data.py $$i; done
+	for i in 14 15 16 17 18; do parse_data.py $$i; done
 
 feed-all:
-	for i in 14 15 16 17; do feed_opensearch.py $$i; done
+	for i in 14 15 16 17 18; do feed_opensearch.py $$i; done
 

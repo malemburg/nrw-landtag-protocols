@@ -5,10 +5,13 @@
 #
 # This should be considered a demo version, not a production setup.
 #
+# MAL Note: Mounting the config files appears to get in the way with the
+# startup script, so those mounts are disabled.
+#
 version: '3'
 services:
   opensearch-node1:
-    image: opensearchproject/opensearch:1.1.0
+    image: opensearchproject/opensearch:2.5.0
     container_name: opensearch-node1
     environment:
       - cluster.name=opensearch-cluster
@@ -16,6 +19,7 @@ services:
       - discovery.seed_hosts=opensearch-node1,opensearch-node2
       - cluster.initial_master_nodes=opensearch-node1,opensearch-node2
       - bootstrap.memory_lock=true # along with the memlock settings below, disables swapping
+      - path.repo=/mnt/snapshots # snapshots mount
       - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m" # minimum and maximum Java heap size, recommend setting both to 50% of system RAM
     ulimits:
       memlock:
@@ -26,6 +30,7 @@ services:
         hard: 65536
     volumes:
       - ./os-data/node-1:/usr/share/opensearch/data
+      - ./os-data/snapshots:/mnt/snapshots
       #- ./os-config/opensearch.yml:/usr/share/opensearch/config/opensearch.yml
     ports:
       # Local host only:
@@ -38,7 +43,7 @@ services:
       - opensearch-net
 
   opensearch-node2:
-    image: opensearchproject/opensearch:1.1.0
+    image: opensearchproject/opensearch:2.5.0
     container_name: opensearch-node2
     environment:
       - cluster.name=opensearch-cluster
@@ -46,6 +51,7 @@ services:
       - discovery.seed_hosts=opensearch-node1,opensearch-node2
       - cluster.initial_master_nodes=opensearch-node1,opensearch-node2
       - bootstrap.memory_lock=true
+      - path.repo=/mnt/snapshots # snapshots mount
       - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
     ulimits:
       memlock:
@@ -56,12 +62,13 @@ services:
         hard: 65536
     volumes:
       - ./os-data/node-2:/usr/share/opensearch/data
+      - ./os-data/snapshots:/mnt/snapshots
       #- ./os-config/opensearch.yml:/usr/share/opensearch/config/opensearch.yml
     networks:
       - opensearch-net
 
   opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:1.1.0
+    image: opensearchproject/opensearch-dashboards:2.5.0
     container_name: opensearch-dashboards
     ports:
       # Local interface only:

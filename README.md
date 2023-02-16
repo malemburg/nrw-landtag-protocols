@@ -49,5 +49,23 @@ Once started, you can point your browser to localhost:5601 and log in
 using the default credentials admin:admin. After login, change the password
 to something strong to protect the instance.
 
+In order to run snapshots, you have to register the snapshot repo
+under os-data/snapshots. This is done using the OS console and the
+command:
+```
+PUT _snapshot/os-snapshots
+{
+  "type": "fs",
+  "settings": {
+    "location": "/mnt/snapshots"
+  }
+}
+```
+
+Once this is in place, snapshots can be created using, e.g.
+```
+PUT _snapshot/os-snapshots/2023-01-31
+```
+
 ---
-Marc-Andre Lemburg, Nov 2021
+Marc-Andre Lemburg, Nov 2021 - Jan 2023
